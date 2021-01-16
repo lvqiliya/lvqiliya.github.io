@@ -28,7 +28,7 @@
 <meta property="og:description" content="使用 divide 插件，体验 dubbo 代理">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-01-16T11:44:50.000Z">
-<meta property="article:modified_time" content="2021-01-16T12:28:34.061Z">
+<meta property="article:modified_time" content="2021-01-16T17:39:46.273Z">
 <meta property="article:author" content="北庐">
 <meta name="twitter:card" content="summary">
 
@@ -187,10 +187,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-01-16 19:44:50 / 修改时间：20:28:34" itemprop="dateCreated datePublished" datetime="2021-01-16T19:44:50+08:00">2021-01-16</time>
+              <time title="创建时间：2021-01-16 19:44:50" itemprop="dateCreated datePublished" datetime="2021-01-16T19:44:50+08:00">2021-01-16</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-01-17 01:39:46" itemprop="dateModified" datetime="2021-01-17T01:39:46+08:00">2021-01-17</time>
+              </span>
 
           
             <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
@@ -199,6 +205,20 @@
               </span>
               <span class="post-meta-item-text">阅读次数：</span>
               <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>1.8k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>2 分钟</span>
             </span>
 
         </div>
@@ -214,7 +234,29 @@
 <a id="more"></a>
 <h2 id="启动项目"><a href="#启动项目" class="headerlink" title="启动项目"></a>启动项目</h2><p>运行 soul-admin 模块的主函数，启动 soul-admin。</p>
 <p>运行 soul-bootstrap 模块的主函数，启动 soul-bootstrap。</p>
-<p>使用 admin 账号登录管理台，点击 PluginList - divide 模块，此时选择器列表（SelectorList）和规则列表（RuleList）均为空。可以手动添加选择器和规则。</p>
+<p>使用 admin 账号登录管理台，点击 PluginList-dubbo 模块，此时选择器列表（SelectorList）和规则列表（RuleList）均为空。可以手动添加选择器和规则。</p>
+<p>检查 soul-bootstrap 模块下 dubbo 插件引入是否完备。</p>
+<p>进入 soul-examples 模块下的 dubbo 子模块。</p>
+<p>dubbo 服务接入网关三要素：</p>
+<ul>
+<li>引入 soul 支持的依赖</li>
+</ul>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.dromara<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>soul-spring-boot-starter-client-alibaba-dubbo<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;soul.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>application.yml</code> 中配置</li>
+</ul>
+<figure class="highlight yml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">soul:</span></span><br><span class="line">  <span class="attr">dubbo:</span></span><br><span class="line">    <span class="attr">adminUrl:</span> <span class="string">http://localhost:9095</span></span><br><span class="line">    <span class="attr">contextPath:</span> <span class="string">/dubbo</span></span><br><span class="line">    <span class="attr">appName:</span> <span class="string">dubbo</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li>代码中使用注解 <code>@SoulDubboClient</code></li>
+</ul>
+<h2 id="源码初步分析"><a href="#源码初步分析" class="headerlink" title="源码初步分析"></a>源码初步分析</h2><p>根据猫大人反复提到的假设猜想原则，假设 dubbo 插件源端进入方法是 <code>AlibabaDubboPlugin#doExecute</code>，使用断点进行验证，假设成立。</p>
+<p>基于该方法向上回溯，由 <code>SoulWebHandler#handle</code> 中创建的静态内部类 <code>DefaultSoulPluginChain</code> 进行调用，进入插件抽象类 <code>AbstractSoulPlugin</code>，通过执行 <code>AbstractSoulPlugin#execute</code> 方法，调用子类的 <code>doExecute</code> 方法，即 <code>AlibabaDubboPlugin#doExecute</code>。</p>
+<p>此处的设计模式是模板模式，抽象类定义最基本的处理流程，具体处理逻辑由子类实现。<code>AbstractSoulPlugin</code> 中的基本流程分别进行了匹配选择器、过滤选择器、匹配规则、过滤规则、调用子类执行逻辑。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 匹配选择器</span></span><br><span class="line"><span class="keyword">final</span> SelectorData selectorData = matchSelector(exchange, selectors);</span><br><span class="line"><span class="comment">// 过滤选择器</span></span><br><span class="line"><span class="function"><span class="keyword">private</span> SelectorData <span class="title">matchSelector</span><span class="params">(<span class="keyword">final</span> ServerWebExchange exchange, <span class="keyword">final</span> Collection&lt;SelectorData&gt; selectors)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> selectors.stream()</span><br><span class="line">            .filter(selector -&gt; selector.getEnabled() &amp;&amp; filterSelector(selector, exchange))</span><br><span class="line">            .findFirst().orElse(<span class="keyword">null</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 匹配规则</span></span><br><span class="line">RuleData rule;</span><br><span class="line">......</span><br><span class="line">rule = matchRule(exchange, rules);</span><br><span class="line"><span class="comment">// 过滤规则</span></span><br><span class="line"><span class="function"><span class="keyword">private</span> RuleData <span class="title">matchRule</span><span class="params">(<span class="keyword">final</span> ServerWebExchange exchange, <span class="keyword">final</span> Collection&lt;RuleData&gt; rules)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> rules.stream()</span><br><span class="line">            .filter(rule -&gt; filterRule(rule, exchange))</span><br><span class="line">            .findFirst().orElse(<span class="keyword">null</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 调用子类执行逻辑</span></span><br><span class="line"><span class="keyword">return</span> doExecute(exchange, chain, selectorData, rule);</span><br></pre></td></tr></table></figure>
+<p>接着 <code>AlibabaDubboPlugin#doExecute</code> 调用了 <code>AlibabaDubboProxyService#genericInvoker</code>，最终通过</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">return</span> genericService.$invoke(metaData.getMethodName(), pair.getLeft(), pair.getRight());</span><br></pre></td></tr></table></figure>
+<p>至此完成流程调用。</p>
+<p>至于再更进一步的源码逻辑梳理，则还需时间进行调试。</p>
 
     </div>
 
@@ -292,7 +334,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8%E9%A1%B9%E7%9B%AE"><span class="nav-number">1.</span> <span class="nav-text">启动项目</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8%E9%A1%B9%E7%9B%AE"><span class="nav-number">1.</span> <span class="nav-text">启动项目</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%BA%90%E7%A0%81%E5%88%9D%E6%AD%A5%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">源码初步分析</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -351,6 +393,16 @@
     <i class="fa fa-heart"></i>
   </span>
   <span class="author" itemprop="copyrightHolder">北庐</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+    <span title="站点总字数">91k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">1:23</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
   </div>
