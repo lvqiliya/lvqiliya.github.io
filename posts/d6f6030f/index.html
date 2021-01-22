@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"lakeside.qly.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="探究 zookeeper 同步数据源码">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Soul 网关学习笔记07-zookeeper同步数据">
+<meta property="og:url" content="https://lakeside.qly.com/posts/d6f6030f/index.html">
+<meta property="og:site_name" content="小筑">
+<meta property="og:description" content="探究 zookeeper 同步数据源码">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lakeside.qly.com/images/soul/watcherData.png">
+<meta property="article:published_time" content="2021-01-22T14:45:24.000Z">
+<meta property="article:modified_time" content="2021-01-22T16:18:24.266Z">
+<meta property="article:author" content="北庐">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lakeside.qly.com/images/soul/watcherData.png">
+
+<link rel="canonical" href="https://lakeside.qly.com/posts/d6f6030f/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Soul 网关学习笔记07-zookeeper同步数据 | 小筑</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">小筑</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://lakeside.qly.com/posts/d6f6030f/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="北庐">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小筑">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Soul 网关学习笔记07-zookeeper同步数据
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-01-22 22:45:24" itemprop="dateCreated datePublished" datetime="2021-01-22T22:45:24+08:00">2021-01-22</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-01-23 00:18:24" itemprop="dateModified" datetime="2021-01-23T00:18:24+08:00">2021-01-23</time>
+              </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.4k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>5 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>探究 zookeeper 同步数据源码</p>
+<a id="more"></a>
+<h2 id="配置"><a href="#配置" class="headerlink" title="配置"></a>配置</h2><ul>
+<li><code>soul-bootstrap</code> 模块引入依赖，如下：</li>
+</ul>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">     <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.dromara<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>soul-spring-boot-starter-sync-data-zookeeper<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;last.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>soul-bootstrap</code> 模块配置文件修改，如下：</li>
+</ul>
+<figure class="highlight yml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">soul:</span></span><br><span class="line">  <span class="attr">sync:</span></span><br><span class="line">    <span class="attr">zookeeper:</span></span><br><span class="line">      <span class="attr">url:</span> <span class="string">localhost:2181</span></span><br><span class="line">      <span class="attr">sessionTimeout:</span> <span class="number">5000</span></span><br><span class="line">      <span class="attr">connectionTimeout:</span> <span class="number">2000</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>soul-admin</code> 模块配置文件修改，如下：</li>
+</ul>
+<figure class="highlight yml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">soul:</span></span><br><span class="line">  <span class="attr">sync:</span></span><br><span class="line">    <span class="attr">zookeeper:</span></span><br><span class="line">      <span class="attr">url:</span> <span class="string">localhost:2181</span></span><br><span class="line">      <span class="attr">sessionTimeout:</span> <span class="number">5000</span></span><br><span class="line">      <span class="attr">connectionTimeout:</span> <span class="number">2000</span></span><br></pre></td></tr></table></figure>
+<h2 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h2><ul>
+<li>运行 <code>zookeeper</code>，Windows 环境下双击运行 <code>zkServer.cmd</code>。</li>
+<li>启动 <code>soul-admin</code> 模块，调用 <code>zookeeper</code> 服务。</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">5692 --- [-localhost:2181] org.I0Itec.zkclient.ZkEventThread        : Starting ZkClient event thread.</span><br><span class="line">......</span><br><span class="line">5692 --- [localhost:2181)] org.apache.zookeeper.ClientCnxn          : Opening socket connection to server localhost&#x2F;127.0.0.1:2181. Will not attempt to authenticate using SASL (unknown error)</span><br><span class="line">5692 --- [localhost:2181)] org.apache.zookeeper.ClientCnxn          : Socket connection established, initiating session, client: &#x2F;127.0.0.1:63443, server: localhost&#x2F;127.0.0.1:2181</span><br><span class="line">5692 --- [localhost:2181)] org.apache.zookeeper.ClientCnxn          : Session establishment complete on server localhost&#x2F;127.0.0.1:2181, sessionid &#x3D; 0x1000554f83b0003, negotiated timeout &#x3D; 5000</span><br><span class="line">[ain-EventThread] org.I0Itec.zkclient.ZkClient             : zookeeper state changed (SyncConnected)</span><br></pre></td></tr></table></figure>
+<ul>
+<li>启动 <code>soul-bootstrap</code> 模块，调用 <code>zookeeper</code> 服务。</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">9700 --- [           main] s.b.s.d.z.ZookeeperSyncDataConfiguration : you use zookeeper sync soul data.......</span><br><span class="line">9700 --- [-localhost:2181] org.I0Itec.zkclient.ZkEventThread        : Starting ZkClient event thread.</span><br><span class="line">......</span><br><span class="line">9700 --- [localhost:2181)] org.apache.zookeeper.ClientCnxn          : Opening socket connection to server localhost&#x2F;127.0.0.1:2181. Will not attempt to authenticate using SASL (unknown error)</span><br><span class="line">9700 --- [localhost:2181)] org.apache.zookeeper.ClientCnxn          : Socket connection established, initiating session, client: &#x2F;127.0.0.1:63477, server: localhost&#x2F;127.0.0.1:2181</span><br><span class="line">9700 --- [localhost:2181)] org.apache.zookeeper.ClientCnxn          : Session establishment complete on server localhost&#x2F;127.0.0.1:2181, sessionid &#x3D; 0x1000554f83b0004, negotiated timeout &#x3D; 5000</span><br><span class="line">9700 --- [ain-EventThread] org.I0Itec.zkclient.ZkClient             : zookeeper state changed (SyncConnected)</span><br></pre></td></tr></table></figure>
+<h2 id="同步数据源码解析"><a href="#同步数据源码解析" class="headerlink" title="同步数据源码解析"></a>同步数据源码解析</h2><p>从 <code>soul-bootstrap</code> 模块启动日志入手，启动服务时自动装配了 zookeeper 同步数据配置类 <code>ZookeeperSyncDataConfiguration</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ZookeeperSyncDataConfiguration</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Sync data service sync data service.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> zkClient          the zk client</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> pluginSubscriber the plugin subscriber</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> metaSubscribers   the meta subscribers</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> authSubscribers   the auth subscribers</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> the sync data service</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> SyncDataService <span class="title">syncDataService</span><span class="params">(<span class="keyword">final</span> ObjectProvider&lt;ZkClient&gt; zkClient, <span class="keyword">final</span> ObjectProvider&lt;PluginDataSubscriber&gt; pluginSubscriber,</span></span></span><br><span class="line"><span class="function"><span class="params">                                           <span class="keyword">final</span> ObjectProvider&lt;List&lt;MetaDataSubscriber&gt;&gt; metaSubscribers, <span class="keyword">final</span> ObjectProvider&lt;List&lt;AuthDataSubscriber&gt;&gt; authSubscribers)</span> </span>&#123;</span><br><span class="line">        log.info(<span class="string">&quot;you use zookeeper sync soul data.......&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> ZookeeperSyncDataService(zkClient.getIfAvailable(), pluginSubscriber.getIfAvailable(),</span><br><span class="line">                metaSubscribers.getIfAvailable(Collections::emptyList), authSubscribers.getIfAvailable(Collections::emptyList));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> ZkClient <span class="title">zkClient</span><span class="params">(<span class="keyword">final</span> ZookeeperConfig zookeeperConfig)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> ZkClient(zookeeperConfig.getUrl(), zookeeperConfig.getSessionTimeout(), zookeeperConfig.getConnectionTimeout());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>实例化 <code>ZookeeperSyncDataService</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ZookeeperSyncDataService</span> <span class="keyword">implements</span> <span class="title">SyncDataService</span>, <span class="title">AutoCloseable</span> </span>&#123;</span><br><span class="line">    ......</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">ZookeeperSyncDataService</span><span class="params">(<span class="keyword">final</span> ZkClient zkClient, <span class="keyword">final</span> PluginDataSubscriber pluginDataSubscriber,</span></span></span><br><span class="line"><span class="function"><span class="params">                                    <span class="keyword">final</span> List&lt;MetaDataSubscriber&gt; metaDataSubscribers, <span class="keyword">final</span> List&lt;AuthDataSubscriber&gt; authDataSubscribers)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.zkClient = zkClient;</span><br><span class="line">        <span class="keyword">this</span>.pluginDataSubscriber = pluginDataSubscriber;</span><br><span class="line">        <span class="keyword">this</span>.metaDataSubscribers = metaDataSubscribers;</span><br><span class="line">        <span class="keyword">this</span>.authDataSubscribers = authDataSubscribers;</span><br><span class="line">        watcherData();</span><br><span class="line">        watchAppAuth();</span><br><span class="line">        watchMetaData();</span><br><span class="line">    &#125;</span><br><span class="line">    ......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>顺序执行方法 <code>watcherData</code>、<code>watchAppAuth</code>、<code>watchMetaData</code>。</p>
+<ul>
+<li>跟踪方法 <code>watcherData</code> 的源码，配合注释查看调用链，如下：</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">watcherData</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">final</span> String pluginParent = ZkPathConstants.PLUGIN_PARENT;</span><br><span class="line">    <span class="comment">// 从 zookeeper 获取节点列表</span></span><br><span class="line">    List&lt;String&gt; pluginZKs = zkClientGetChildren(pluginParent);</span><br><span class="line">    <span class="keyword">for</span> (String pluginName : pluginZKs) &#123;</span><br><span class="line">        <span class="comment">// 处理所有从 zookeeper 获取的插件内容</span></span><br><span class="line">        watcherAll(pluginName);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// zookeeper 客户端订阅节点变化</span></span><br><span class="line">    zkClient.subscribeChildChanges(pluginParent, (parentPath, currentChildren) -&gt; &#123;</span><br><span class="line">        <span class="keyword">if</span> (CollectionUtils.isNotEmpty(currentChildren)) &#123;</span><br><span class="line">            <span class="keyword">for</span> (String pluginName : currentChildren) &#123;</span><br><span class="line">                watcherAll(pluginName);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">watcherAll</span><span class="params">(<span class="keyword">final</span> String pluginName)</span> </span>&#123;</span><br><span class="line">    watcherPlugin(pluginName);</span><br><span class="line">    watcherSelector(pluginName);</span><br><span class="line">    watcherRule(pluginName);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">watcherPlugin</span><span class="params">(<span class="keyword">final</span> String pluginName)</span> </span>&#123;</span><br><span class="line">    String pluginPath = ZkPathConstants.buildPluginPath(pluginName);</span><br><span class="line">    <span class="keyword">if</span> (!zkClient.exists(pluginPath)) &#123;</span><br><span class="line">        zkClient.createPersistent(pluginPath, <span class="keyword">true</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 缓存插件数据</span></span><br><span class="line">    cachePluginData(zkClient.readData(pluginPath));</span><br><span class="line">    <span class="comment">// 订阅插件数据</span></span><br><span class="line">    subscribePluginDataChanges(pluginPath, pluginName);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">subscribePluginDataChanges</span><span class="params">(<span class="keyword">final</span> String pluginPath, <span class="keyword">final</span> String pluginName)</span> </span>&#123;</span><br><span class="line">    zkClient.subscribeDataChanges(pluginPath, <span class="keyword">new</span> IZkDataListener() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleDataChange</span><span class="params">(<span class="keyword">final</span> String dataPath, <span class="keyword">final</span> Object data)</span> </span>&#123;</span><br><span class="line">            <span class="comment">// 调用 CommonPluginDataSubscriber 类的 onSubscribe 方法，具体可见系列文章 06</span></span><br><span class="line">            Optional.ofNullable(data)</span><br><span class="line">                    .ifPresent(d -&gt; Optional.ofNullable(pluginDataSubscriber).ifPresent(e -&gt; e.onSubscribe((PluginData) d)));</span><br><span class="line">        &#125;</span><br><span class="line">        ......</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>查看调用栈：</p>
+<p><img src="/images/soul/watcherData.png" alt="watcherData方法调用栈"></p>
+<p><strong><em>未完待续</em></strong></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/e756f54c/" rel="prev" title="Soul 网关学习笔记06-websocket同步数据">
+      <i class="fa fa-chevron-left"></i> Soul 网关学习笔记06-websocket同步数据
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE"><span class="nav-number">1.</span> <span class="nav-text">配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8"><span class="nav-number">2.</span> <span class="nav-text">启动</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%8C%E6%AD%A5%E6%95%B0%E6%8D%AE%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">同步数据源码解析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">北庐</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">北庐</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+    <span title="站点总字数">120k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">1:49</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
